@@ -1,6 +1,6 @@
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,14 +27,16 @@ function getOrdinalSuffix(day: number): string {
 const WELCOME_FONT_SIZE = 27
 const WELCOME_LINE_HEIGHT = 42
 const WELCOME_FAINT_COLOR = '#ffffff9a'
-const TOP_DASHBOARD_HEIGHT = Dimensions.get('window').height
 
 export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
+    const [activeTab, setActiveTab] = useState(0)
+    const TOP_DASHBOARD_HEIGHT = 570
+
     const insets = useSafeAreaInsets()
     
-    const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT * 0.53);
+    const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT);
     const startHeight = useSharedValue(0);
     const collapseHeight = insets.top + 100
 
@@ -53,24 +55,29 @@ export default function HomeScreen() {
             }
         })
         .onEnd(() => {
-            const expandedHeight = TOP_DASHBOARD_HEIGHT * 0.53;
-            const collapsedHeight = collapseHeight;
+            const expandedHeight = TOP_DASHBOARD_HEIGHT;
             const currentHeight = dashboardHeight.value;
 
             // Snap to the closest point
-            const distToCollapsed = Math.abs(currentHeight - collapsedHeight);
+            const distToCollapsed = Math.abs(currentHeight - collapseHeight);
             const distToExpanded = Math.abs(currentHeight - expandedHeight);
 
             if (distToCollapsed < distToExpanded) {
-                dashboardHeight.value = withTiming(collapsedHeight, { duration: 100, easing: Easing.ease });
+                dashboardHeight.value = withTiming(collapseHeight, { duration: 500, easing: Easing.ease });
             } else {
-                dashboardHeight.value = withTiming(expandedHeight, { duration: 100, easing: Easing.ease });
+                dashboardHeight.value = withTiming(expandedHeight, { duration: 500, easing: Easing.ease });
             }
         });
 
     const animatedDashboardStyle = useAnimatedStyle(() => {
         return {
             height: dashboardHeight.value,
+        };
+    });
+    
+    const indicatorStyle = useAnimatedStyle(() => {
+        return {
+            left: withTiming(activeTab === 0 ? 5 : 60, { duration: 300, easing: Easing.out(Easing.quad) }),
         };
     });
 
@@ -112,17 +119,6 @@ export default function HomeScreen() {
                 ]}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.tabRow}>
-                    <TouchableOpacity style={styles.tabButton}>
-                        <FontAwesome6 name="file" size={24} color="gray" />
-                        <FontAwesome6 name="file-invoice" size={24} color="gray" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.tabButtonActive}>
-                        <MaterialCommunityIcons name="chat" size={24} color="gray" />
-                        <MaterialCommunityIcons name="chat-outline" size={24} color="gray" />
-                    </TouchableOpacity>
-                </View>
-
                 {/* <View style={styles.dateDivider}>
                     <Text style={styles.dateDividerText}>TODAY</Text>
                 </View>
@@ -155,14 +151,14 @@ export default function HomeScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={[styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}
             >
-                <View style={styles.floatingMenu}>
+                {/* <View style={styles.floatingMenu}>
                     <View style={styles.menuPill}>
                          <Text style={styles.menuText}>Yesterday</Text>
                          <View style={styles.menuDivider} />
                          <Text style={styles.menuText}>Last Week</Text>
                     </View>
                     <View style={styles.menuArrow} />
-                </View>
+                </View> */}
 
                 <View style={styles.inputPill}>
                     <TouchableOpacity style={styles.iconButton}>
@@ -210,7 +206,7 @@ export default function HomeScreen() {
 
                     <View style={styles.footerContainer}>
                         <View style={styles.footerLine} />
-                        <Text style={styles.footerText}>Last conversation -- 5 hours ago</Text>
+                        <Text style={styles.footerText}>Last conversation — 5 hours ago</Text>
                     </View>
                 </View>
 
@@ -219,6 +215,24 @@ export default function HomeScreen() {
                         <View style={styles.topDashboardLine} />
                     </View>
                 </GestureDetector>
+
+                <View style={styles.tabRow}>
+                    <Animated.View style={[styles.tabIndicator, indicatorStyle]} />
+                    <Pressable style={styles.tabButton} onPress={() => setActiveTab(0)}>
+                        {activeTab === 0 ? (
+                            <FontAwesome6 name="file-invoice" size={22} color="#fff" />
+                        ) : (
+                            <FontAwesome6 name="file" size={22} color="gray" />
+                        )}
+                    </Pressable>
+                    <Pressable style={styles.tabButton} onPress={() => setActiveTab(1)}>
+                         {activeTab === 1 ? (
+                            <MaterialCommunityIcons name="chat" size={22} color="#fff" />
+                        ) : (
+                             <MaterialCommunityIcons name="chat-outline" size={22} color="gray" />
+                        )}
+                    </Pressable>
+                </View>
             </Animated.View>
         </View>
     );
@@ -235,7 +249,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 100,
-        // height removed effectively as it is now controlled by animated style
     },
     topDashboardContent: {
         flex: 1,
@@ -331,17 +344,27 @@ const styles = StyleSheet.create({
     },
     tabRow: {
         flexDirection: 'row',
-        justifyContent: 'center',
         marginBottom: 24,
-        gap: 40,
+        backgroundColor: '#222222',
+        borderRadius: 1000,
+        position: 'relative',
+        marginHorizontal: 'auto',
+    },
+    tabIndicator: {
+        position: 'absolute',
+        top: 5,
+        backgroundColor: '#3D3D3D',
+        borderRadius: 100,
+        width: 45,
+        height: 45,
     },
     tabButton: {
-        padding: 8,
-    },
-    tabButtonActive: {
-        padding: 8,
-        borderBottomWidth: 2,
-        borderBottomColor: '#333',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1,
+        width: 55,
+        height: 55,
+        borderRadius: 100
     },
     dateDivider: {
         alignItems: 'center',
