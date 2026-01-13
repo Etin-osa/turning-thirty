@@ -1,6 +1,8 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const months = [
@@ -23,14 +25,54 @@ function getOrdinalSuffix(day: number): string {
 }
 
 const WELCOME_FONT_SIZE = 27
-const WELCOME_LINE_HEIGHT = 40
+const WELCOME_LINE_HEIGHT = 42
 const WELCOME_FAINT_COLOR = '#ffffff9a'
+const TOP_DASHBOARD_HEIGHT = Dimensions.get('window').height
 
 export default function HomeScreen() {
-    const [daysLeft, setDaysLeft] = useState(0);
-    const [dateString, setDateString] = useState({ part1: "", part2: "" });
-    const insets = useSafeAreaInsets();
-    const TOP_DASHBOARD_HEIGHT = Dimensions.get('window').height * 0.47;
+    const [daysLeft, setDaysLeft] = useState(0)
+    const [dateString, setDateString] = useState({ part1: "", part2: "" })
+    const insets = useSafeAreaInsets()
+    
+    const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT * 0.53);
+    const startHeight = useSharedValue(0);
+    const collapseHeight = insets.top + 100
+
+    const pan = Gesture.Pan()
+        .onStart(() => {
+            startHeight.value = dashboardHeight.value;
+        })
+        .onUpdate((event) => {
+            const newHeight = startHeight.value + event.translationY;
+            // Collapse at 150 (hard limit)
+            if (newHeight < collapseHeight) {
+                dashboardHeight.value = collapseHeight;
+            } else {
+                // Allow dragging past the expanded height (overshoot)
+                dashboardHeight.value = newHeight;
+            }
+        })
+        .onEnd(() => {
+            const expandedHeight = TOP_DASHBOARD_HEIGHT * 0.53;
+            const collapsedHeight = collapseHeight;
+            const currentHeight = dashboardHeight.value;
+
+            // Snap to the closest point
+            const distToCollapsed = Math.abs(currentHeight - collapsedHeight);
+            const distToExpanded = Math.abs(currentHeight - expandedHeight);
+
+            if (distToCollapsed < distToExpanded) {
+                dashboardHeight.value = withTiming(collapsedHeight, { duration: 100, easing: Easing.ease });
+            } else {
+                dashboardHeight.value = withTiming(expandedHeight, { duration: 100, easing: Easing.ease });
+            }
+        });
+
+    const animatedDashboardStyle = useAnimatedStyle(() => {
+        return {
+            height: dashboardHeight.value,
+        };
+    });
 
     useEffect(() => {
         const targetDate = new Date('2030-02-15T00:00:00').getTime();
@@ -72,14 +114,16 @@ export default function HomeScreen() {
             >
                 <View style={styles.tabRow}>
                     <TouchableOpacity style={styles.tabButton}>
-                        <Feather name="file-text" size={24} color="#ccc" />
+                        <FontAwesome6 name="file" size={24} color="gray" />
+                        <FontAwesome6 name="file-invoice" size={24} color="gray" />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.tabButtonActive}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#333" />
+                        <MaterialCommunityIcons name="chat" size={24} color="gray" />
+                        <MaterialCommunityIcons name="chat-outline" size={24} color="gray" />
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.dateDivider}>
+                {/* <View style={styles.dateDivider}>
                     <Text style={styles.dateDividerText}>TODAY</Text>
                 </View>
 
@@ -102,9 +146,9 @@ export default function HomeScreen() {
                     <Text style={styles.chatText}>
                         Scheduled. Weather looks clear.
                     </Text>
-                </View>
+                </View>*/}
                 
-                 <View style={{ height: 400 }} />
+                 <View style={{ height: 400 }} /> 
             </ScrollView>
 
             <KeyboardAvoidingView
@@ -135,39 +179,47 @@ export default function HomeScreen() {
                 </View>
             </KeyboardAvoidingView>
 
-            <View style={[styles.topDashboard, { height: TOP_DASHBOARD_HEIGHT, paddingTop: insets.top + 20 }]}>
-                <View style={styles.header}>
-                    <Feather name="box" size={24} color="#rgba(255,255,255,0.8)" />
-                    <View style={styles.headerIcons}>
-                        <Ionicons name="trophy-outline" size={24} color="#rgba(255,255,255,0.8)" style={{ marginRight: 24 }} />
-                        <Feather name="settings" size={24} color="#rgba(255,255,255,0.8)" />
-                    </View>
-                </View>
-
-                <View style={styles.heroContainer}>
-                    <View style={styles.greetingContainer}>
-                        <Text style={styles.greetingText}>Good morning, </Text>
-                        <View style={styles.profileCircle} />
-                        <Text style={styles.greetingName}> Alexey, </Text>
-                    </View>
-                    <Text>
-                        <Text style={styles.regularText}>It's </Text>
-                        <Text style={styles.boldText}>{dateString.part1}</Text>
-                        <View style={{ transform: [{ rotate: '-10deg' }, { translateY: 7 }]}}>
-                            <Text style={{ fontSize: WELCOME_FONT_SIZE }}>{dateString.part2}</Text>
+            <Animated.View style={[styles.topDashboard, animatedDashboardStyle]}>
+                <View style={[styles.topDashboardContent, { paddingTop: insets.top + 20 }]}>
+                    <View style={styles.header}>
+                        <Feather name="box" size={24} color="#rgba(255,255,255,0.8)" />
+                        <View style={styles.headerIcons}>
+                            <Ionicons name="trophy-outline" size={24} color="#rgba(255,255,255,0.8)" style={{ marginRight: 24 }} />
+                            <Feather name="settings" size={24} color="#rgba(255,255,255,0.8)" />
                         </View>
-                        <Text style={styles.regularText}> and you have </Text>
-                        <Text style={styles.boldText}>{daysLeft} days</Text>
-                        <Text style={styles.regularText}> remaining until your</Text>
-                        <Text style={styles.boldText}> 30th Birthday.</Text>
-                    </Text>
+                    </View>
+
+                    <View style={styles.heroContainer}>
+                        <View style={styles.greetingContainer}>
+                            <Text style={styles.greetingText}>Good morning, </Text>
+                            <View style={styles.profileCircle} />
+                            <Text style={styles.greetingName}> Alexey, </Text>
+                        </View>
+                        <Text>
+                            <Text style={styles.regularText}>It's </Text>
+                            <Text style={styles.boldText}>{dateString.part1}</Text>
+                            <View style={{ transform: [{ rotate: '-10deg' }, { translateY: 7 }]}}>
+                                <Text style={{ fontSize: WELCOME_FONT_SIZE }}>{dateString.part2}</Text>
+                            </View>
+                            <Text style={styles.regularText}> and you have </Text>
+                            <Text style={styles.boldText}>{daysLeft} days</Text>
+                            <Text style={styles.regularText}> remaining until your</Text>
+                            <Text style={styles.boldText}> 30th Birthday.</Text>
+                        </Text>
+                    </View>
+
+                    <View style={styles.footerContainer}>
+                        <View style={styles.footerLine} />
+                        <Text style={styles.footerText}>Last conversation -- 5 hours ago</Text>
+                    </View>
                 </View>
 
-                <View style={styles.footerContainer}>
-                    <View style={styles.footerLine} />
-                    <Text style={styles.footerText}>Last conversation -- 5 hours ago</Text>
-                </View>
-            </View>
+                <GestureDetector gesture={pan}>
+                    <View style={{ padding: 10 }}>
+                        <View style={styles.topDashboardLine} />
+                    </View>
+                </GestureDetector>
+            </Animated.View>
         </View>
     );
 }
@@ -182,18 +234,16 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
+        zIndex: 100,
+        // height removed effectively as it is now controlled by animated style
+    },
+    topDashboardContent: {
+        flex: 1,
         backgroundColor: '#0060FD',
+        justifyContent: 'space-between',
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
-        elevation: 10,
-        zIndex: 100,
-        paddingHorizontal: 24,
-        paddingBottom: 24,
-        justifyContent: 'space-between',
+        padding: 25
     },
     header: {
         flexDirection: 'row',
@@ -266,9 +316,18 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '500',
     },
-    // Bottom Content
+    topDashboardLine: {
+        height: 5,
+        backgroundColor: '#fff',
+        opacity: 0.2,
+        marginBottom: 12,
+        borderRadius: 100,
+        width: 50,
+        marginHorizontal: 'auto',
+    },
     scrollContent: {
         paddingHorizontal: 24,
+        backgroundColor: '#080808'
     },
     tabRow: {
         flexDirection: 'row',
