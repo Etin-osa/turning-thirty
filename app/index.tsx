@@ -1,8 +1,8 @@
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const months = [
@@ -32,52 +32,60 @@ export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
     const [activeTab, setActiveTab] = useState(0)
-    const TOP_DASHBOARD_HEIGHT = 570
+    const TOP_DASHBOARD_HEIGHT = 470
 
     const insets = useSafeAreaInsets()
-    
     const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT);
     const startHeight = useSharedValue(0);
-    const collapseHeight = insets.top + 100
+    const collapseHeight = 110
 
     const pan = Gesture.Pan()
         .onStart(() => {
             startHeight.value = dashboardHeight.value;
         })
         .onUpdate((event) => {
-            const newHeight = startHeight.value + event.translationY;
-            // Collapse at 150 (hard limit)
+            const newHeight = startHeight.value + event.translationY
+
             if (newHeight < collapseHeight) {
-                dashboardHeight.value = collapseHeight;
+                dashboardHeight.value = collapseHeight
             } else {
-                // Allow dragging past the expanded height (overshoot)
-                dashboardHeight.value = newHeight;
+                dashboardHeight.value = newHeight
             }
         })
-        .onEnd(() => {
+        .onEnd((event) => {
             const expandedHeight = TOP_DASHBOARD_HEIGHT;
-            const currentHeight = dashboardHeight.value;
 
-            // Snap to the closest point
-            const distToCollapsed = Math.abs(currentHeight - collapseHeight);
-            const distToExpanded = Math.abs(currentHeight - expandedHeight);
-
-            if (distToCollapsed < distToExpanded) {
-                dashboardHeight.value = withTiming(collapseHeight, { duration: 500, easing: Easing.ease });
+            if (event.velocityY > 0) {
+                dashboardHeight.value = withTiming(
+                    expandedHeight, { duration: 500, easing: Easing.linear }
+                )
             } else {
-                dashboardHeight.value = withTiming(expandedHeight, { duration: 500, easing: Easing.ease });
+                dashboardHeight.value = withTiming(
+                    collapseHeight, { duration: 500, easing: Easing.linear }
+                )
             }
         });
 
-    const animatedDashboardStyle = useAnimatedStyle(() => {
-        return {
-            height: dashboardHeight.value,
-        };
-    });
-    
     const indicatorStyle = useAnimatedStyle(() => {
         return {
             left: withTiming(activeTab === 0 ? 5 : 60, { duration: 300, easing: Easing.out(Easing.quad) }),
+        };
+    });
+
+    const contentOpacityStyle = useAnimatedStyle(() => {
+        return {
+            opacity: interpolate(
+                dashboardHeight.value,
+                [collapseHeight, collapseHeight + 60],
+                [0, 1],
+                Extrapolation.CLAMP
+            ),
+        };
+    });
+
+    const animatedContentHeightStyle = useAnimatedStyle(() => {
+        return {
+            height: dashboardHeight.value,
         };
     });
 
@@ -175,8 +183,8 @@ export default function HomeScreen() {
                 </View>
             </KeyboardAvoidingView>
 
-            <Animated.View style={[styles.topDashboard, animatedDashboardStyle]}>
-                <View style={[styles.topDashboardContent, { paddingTop: insets.top + 20 }]}>
+            <View style={styles.topDashboard}>
+                <Animated.View style={[styles.topDashboardContent, { paddingTop: insets.top + 20 }, animatedContentHeightStyle]}>
                     <View style={styles.header}>
                         <Feather name="box" size={24} color="#rgba(255,255,255,0.8)" />
                         <View style={styles.headerIcons}>
@@ -184,8 +192,9 @@ export default function HomeScreen() {
                             <Feather name="settings" size={24} color="#rgba(255,255,255,0.8)" />
                         </View>
                     </View>
-
-                    <View style={styles.heroContainer}>
+                    
+                    {/* Hero Container with Absolute Positioning */}
+                    <Animated.View style={[styles.heroContainer, { top: insets.top + (0.47 * TOP_DASHBOARD_HEIGHT) }, contentOpacityStyle]}>
                         <View style={styles.greetingContainer}>
                             <Text style={styles.greetingText}>Good morning, </Text>
                             <View style={styles.profileCircle} />
@@ -202,16 +211,16 @@ export default function HomeScreen() {
                             <Text style={styles.regularText}> remaining until your</Text>
                             <Text style={styles.boldText}> 30th Birthday.</Text>
                         </Text>
-                    </View>
+                    </Animated.View>
 
-                    <View style={styles.footerContainer}>
+                    <Animated.View style={[styles.footerContainer, contentOpacityStyle]}>
                         <View style={styles.footerLine} />
                         <Text style={styles.footerText}>Last conversation — 5 hours ago</Text>
-                    </View>
-                </View>
+                    </Animated.View>
+                </Animated.View>
 
                 <GestureDetector gesture={pan}>
-                    <View style={{ padding: 10 }}>
+                    <View style={{ padding: 15 }}>
                         <View style={styles.topDashboardLine} />
                     </View>
                 </GestureDetector>
@@ -233,7 +242,7 @@ export default function HomeScreen() {
                         )}
                     </Pressable>
                 </View>
-            </Animated.View>
+            </View>
         </View>
     );
 }
@@ -251,12 +260,13 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     topDashboardContent: {
-        flex: 1,
         backgroundColor: '#0060FD',
         justifyContent: 'space-between',
+        flexDirection: 'column',
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
-        padding: 25
+        paddingHorizontal: 25,
+        overflow: 'hidden',
     },
     header: {
         flexDirection: 'row',
@@ -269,11 +279,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     heroContainer: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'flex-start',
-        paddingBottom: 20,
-        width: '95%'
+        width: '95%',
+        overflow: 'hidden',
+        position: 'absolute',
+        left: 25,
+        transform: [{ translateY: '-50%' }],
     },
     greetingContainer: {
         flexDirection: 'row',
@@ -316,12 +328,13 @@ const styles = StyleSheet.create({
     },
     footerContainer: {
         marginTop: 'auto',
+        gap: 10,
+        paddingBottom: 15
     },
     footerLine: {
         height: 1,
         backgroundColor: '#fff',
-        opacity: 0.2,
-        marginBottom: 12,
+        opacity: 0.2
     },
     footerText: {
         color: '#fff',
@@ -333,18 +346,17 @@ const styles = StyleSheet.create({
         height: 5,
         backgroundColor: '#fff',
         opacity: 0.2,
-        marginBottom: 12,
         borderRadius: 100,
         width: 50,
         marginHorizontal: 'auto',
     },
     scrollContent: {
         paddingHorizontal: 24,
-        backgroundColor: '#080808'
+        backgroundColor: '#080808',
+        flex: 1
     },
     tabRow: {
         flexDirection: 'row',
-        marginBottom: 24,
         backgroundColor: '#222222',
         borderRadius: 1000,
         position: 'relative',
