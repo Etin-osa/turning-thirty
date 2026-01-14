@@ -4,6 +4,9 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import { ChatBubble } from '../components/ChatBubble';
 
 const months = [
     "January", "February", "March", "April", "May", "June",
@@ -31,8 +34,8 @@ const WELCOME_FAINT_COLOR = '#ffffff9a'
 export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
-    const [activeTab, setActiveTab] = useState(0)
-    const TOP_DASHBOARD_HEIGHT = 470
+    const [activeTab, setActiveTab] = useState(1)
+    const TOP_DASHBOARD_HEIGHT = 450
 
     const insets = useSafeAreaInsets()
     const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT);
@@ -89,6 +92,12 @@ export default function HomeScreen() {
         };
     });
 
+    const animatedGradientHeightStyle = useAnimatedStyle(() => {
+        return {
+            height: dashboardHeight.value + (800 - TOP_DASHBOARD_HEIGHT),
+        };
+    });
+
     useEffect(() => {
         const targetDate = new Date('2030-02-15T00:00:00').getTime();
 
@@ -100,7 +109,7 @@ export default function HomeScreen() {
             if (difference > 0) {
                 setDaysLeft(Math.floor(difference / (1000 * 60 * 60 * 24)));
             } else {
-                 setDaysLeft(0);
+                setDaysLeft(0);
             }
 
             const dayName = daysOfWeek[now.getDay()];
@@ -126,59 +135,28 @@ export default function HomeScreen() {
                     { paddingTop: TOP_DASHBOARD_HEIGHT + 20, paddingBottom: 120 }
                 ]}
                 showsVerticalScrollIndicator={false}
-            >
-                {/* <View style={styles.dateDivider}>
-                    <Text style={styles.dateDividerText}>TODAY</Text>
-                </View>
-
-                <View style={styles.chatBubble}>
-                    <Text style={styles.chatAuthor}>AI Companion</Text>
-                    <Text style={styles.chatText}>
-                        Reviewing last week's notes, you mentioned wanting to focus on cardio. 
-                        Shall we schedule a run for tomorrow morning?
-                    </Text>
-                </View>
-
-                <View style={[styles.chatBubble, styles.userBubble]}>
-                    <Text style={styles.chatText}>
-                        That sounds good. Let's do 7 AM.
-                    </Text>
-                </View>
-                
-                 <View style={styles.chatBubble}>
-                    <Text style={styles.chatAuthor}>AI Companion</Text>
-                    <Text style={styles.chatText}>
-                        Scheduled. Weather looks clear.
-                    </Text>
-                </View>*/}
-                
-                 <View style={{ height: 400 }} /> 
+            >                
+                {activeTab === 1 && (
+                    <ChatBubble />
+                )}
+                <View style={{ height: 400 }} /> 
             </ScrollView>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={[styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}
+                style={[styles.inputWrapper, { paddingBottom: insets.bottom + 20 }]}
             >
-                {/* <View style={styles.floatingMenu}>
-                    <View style={styles.menuPill}>
-                         <Text style={styles.menuText}>Yesterday</Text>
-                         <View style={styles.menuDivider} />
-                         <Text style={styles.menuText}>Last Week</Text>
-                    </View>
-                    <View style={styles.menuArrow} />
-                </View> */}
-
                 <View style={styles.inputPill}>
                     <TouchableOpacity style={styles.iconButton}>
-                        <Feather name="clock" size={20} color="#666" />
+                        <Feather name="clock" size={20} color="#737373" />
                     </TouchableOpacity>
                     <TextInput
                         style={styles.textInput}
-                        placeholder="Type a message..."
-                        placeholderTextColor="#999"
+                        placeholder="Let's talk about your day..."
+                        placeholderTextColor="#535353"
                     />
                     <TouchableOpacity style={styles.sendButton}>
-                        <Feather name="arrow-up" size={20} color="#fff" />
+                        <Feather name="arrow-up" size={20} color="#737373" />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -193,7 +171,6 @@ export default function HomeScreen() {
                         </View>
                     </View>
                     
-                    {/* Hero Container with Absolute Positioning */}
                     <Animated.View style={[styles.heroContainer, { top: insets.top + (0.47 * TOP_DASHBOARD_HEIGHT) }, contentOpacityStyle]}>
                         <View style={styles.greetingContainer}>
                             <Text style={styles.greetingText}>Good morning, </Text>
@@ -220,7 +197,7 @@ export default function HomeScreen() {
                 </Animated.View>
 
                 <GestureDetector gesture={pan}>
-                    <View style={{ padding: 15 }}>
+                    <View style={{ padding: 15, position: 'relative', zIndex: 12 }}>
                         <View style={styles.topDashboardLine} />
                     </View>
                 </GestureDetector>
@@ -242,6 +219,16 @@ export default function HomeScreen() {
                         )}
                     </Pressable>
                 </View>
+
+                <Animated.View style={[styles.gradientContainer, animatedGradientHeightStyle]}>
+                    <LinearGradient
+                        colors={['#000000', 'rgba(0,0,0,0)']}
+                        locations={[0.65, 1]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={{ width: '100%', height: '100%' }}
+                    />
+                </Animated.View>
             </View>
         </View>
     );
@@ -267,6 +254,8 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 32,
         paddingHorizontal: 25,
         overflow: 'hidden',
+        position: 'relative',
+        zIndex: 12
     },
     header: {
         flexDirection: 'row',
@@ -361,6 +350,7 @@ const styles = StyleSheet.create({
         borderRadius: 1000,
         position: 'relative',
         marginHorizontal: 'auto',
+        zIndex: 12
     },
     tabIndicator: {
         position: 'absolute',
@@ -378,6 +368,13 @@ const styles = StyleSheet.create({
         height: 55,
         borderRadius: 100
     },
+    gradientContainer: {
+        position: 'absolute', 
+        top: 0,
+        left: 0, 
+        width: '100%',
+        zIndex: 10
+    },
     dateDivider: {
         alignItems: 'center',
         marginBottom: 20,
@@ -388,38 +385,6 @@ const styles = StyleSheet.create({
         color: '#999',
         letterSpacing: 1,
     },
-    chatBubble: {
-        backgroundColor: '#fff',
-        padding: 16,
-        borderRadius: 16,
-        borderTopLeftRadius: 4,
-        marginBottom: 12,
-        maxWidth: '85%',
-        alignSelf: 'flex-start',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    userBubble: {
-        backgroundColor: '#EBEBEB',
-        alignSelf: 'flex-end',
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 4,
-    },
-    chatAuthor: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#333',
-        marginBottom: 4,
-    },
-    chatText: {
-        fontSize: 15,
-        lineHeight: 22,
-        color: '#333',
-    },
-    // Input Area
     inputWrapper: {
         position: 'absolute',
         bottom: 0,
@@ -427,7 +392,7 @@ const styles = StyleSheet.create({
         right: 0,
         paddingHorizontal: 16,
         zIndex: 110,
-        paddingTop: 10,
+        backgroundColor: 'black'
     },
     floatingMenu: {
         position: 'absolute',
@@ -436,13 +401,13 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     menuPill: {
-      flexDirection: 'row',
-      backgroundColor: '#333',
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-       shadowColor: "#000",
+        flexDirection: 'row',
+        backgroundColor: '#333',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -476,17 +441,11 @@ const styles = StyleSheet.create({
     inputPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#1C1C1C',
         borderRadius: 32,
         paddingVertical: 6,
         paddingHorizontal: 6,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
         borderWidth: 1,
-        borderColor: '#f0f0f0',
     },
     iconButton: {
         width: 44,
@@ -494,7 +453,7 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#2D2D2D',
     },
     textInput: {
         flex: 1,
@@ -507,7 +466,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#111',
+        backgroundColor: '#2D2D2D',
         justifyContent: 'center',
         alignItems: 'center',
     },
