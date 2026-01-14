@@ -1,12 +1,14 @@
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { ChatBubble } from '../components/ChatBubble';
+import { Notes } from '../components/Notes';
 
 const months = [
     "January", "February", "March", "April", "May", "June",
@@ -30,29 +32,38 @@ function getOrdinalSuffix(day: number): string {
 const WELCOME_FONT_SIZE = 27
 const WELCOME_LINE_HEIGHT = 42
 const WELCOME_FAINT_COLOR = '#ffffff9a'
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
     const [activeTab, setActiveTab] = useState(1)
     const TOP_DASHBOARD_HEIGHT = 450
+    const GRADIENT_HEIGHT = 800
+    const SCROLL_PADDING = 450
 
     const insets = useSafeAreaInsets()
-    const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT);
-    const startHeight = useSharedValue(0);
+    const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT)
+    const gradientHeight = useSharedValue(GRADIENT_HEIGHT)
+    const scrollPadding = useSharedValue(SCROLL_PADDING)
+    const startHeight = useSharedValue(0)
     const collapseHeight = 110
+    const collapseGradientHeight = collapseHeight + 100
+    const collapseScrollPadding = collapseHeight + 100
 
     const pan = Gesture.Pan()
         .onStart(() => {
-            startHeight.value = dashboardHeight.value;
+            startHeight.value = dashboardHeight.value
         })
         .onUpdate((event) => {
             const newHeight = startHeight.value + event.translationY
 
             if (newHeight < collapseHeight) {
                 dashboardHeight.value = collapseHeight
+                gradientHeight.value = collapseGradientHeight
             } else {
                 dashboardHeight.value = newHeight
+                gradientHeight.value = newHeight + (GRADIENT_HEIGHT - TOP_DASHBOARD_HEIGHT)
             }
         })
         .onEnd((event) => {
@@ -62,9 +73,21 @@ export default function HomeScreen() {
                 dashboardHeight.value = withTiming(
                     expandedHeight, { duration: 500, easing: Easing.linear }
                 )
+                gradientHeight.value = withTiming(
+                    expandedHeight + (GRADIENT_HEIGHT - TOP_DASHBOARD_HEIGHT), { duration: 500, easing: Easing.linear }
+                )
+                scrollPadding.value = withTiming(
+                    SCROLL_PADDING, { duration: 500, easing: Easing.linear }
+                )
             } else {
                 dashboardHeight.value = withTiming(
                     collapseHeight, { duration: 500, easing: Easing.linear }
+                )
+                gradientHeight.value = withTiming(
+                    collapseGradientHeight, { duration: 500, easing: Easing.linear }
+                )
+                scrollPadding.value = withTiming(
+                    collapseScrollPadding, { duration: 500, easing: Easing.linear }
                 )
             }
         });
@@ -94,7 +117,13 @@ export default function HomeScreen() {
 
     const animatedGradientHeightStyle = useAnimatedStyle(() => {
         return {
-            height: dashboardHeight.value + (800 - TOP_DASHBOARD_HEIGHT),
+            height: gradientHeight.value,
+        };
+    });
+
+    const animatedScrolPaddingStyle = useAnimatedStyle(() => {
+        return {
+            paddingTop: scrollPadding.value
         };
     });
 
@@ -128,24 +157,25 @@ export default function HomeScreen() {
     }, []);
 
     return (
-        <View style={styles.container}>
-            <ScrollView
-                contentContainerStyle={[
-                    styles.scrollContent,
-                    { paddingTop: TOP_DASHBOARD_HEIGHT + 20, paddingBottom: 120 }
-                ]}
-                showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView 
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
+        >
+            <KeyboardAwareScrollView
+                contentContainerStyle={styles.scrollContent}
+                style={[animatedScrolPaddingStyle]}
             >                
                 {activeTab === 1 && (
                     <ChatBubble />
                 )}
-                <View style={{ height: 400 }} /> 
-            </ScrollView>
+                {activeTab === 0 && (
+                    <Notes />
+                )}
+                <View style={{ height: insets.bottom + 300 }} /> 
+            </KeyboardAwareScrollView>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={[styles.inputWrapper, { paddingBottom: insets.bottom + 20 }]}
-            >
+            <View style={[styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}>
                 <View style={styles.inputPill}>
                     <TouchableOpacity style={styles.iconButton}>
                         <Feather name="clock" size={20} color="#737373" />
@@ -159,7 +189,7 @@ export default function HomeScreen() {
                         <Feather name="arrow-up" size={20} color="#737373" />
                     </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
+            </View>
 
             <View style={styles.topDashboard}>
                 <Animated.View style={[styles.topDashboardContent, { paddingTop: insets.top + 20 }, animatedContentHeightStyle]}>
@@ -230,21 +260,21 @@ export default function HomeScreen() {
                     />
                 </Animated.View>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#080808',
+        position: 'relative',
     },
     topDashboard: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 100,
     },
     topDashboardContent: {
         backgroundColor: '#0060FD',
@@ -341,8 +371,8 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 24,
-        backgroundColor: '#080808',
-        flex: 1
+        width: '100%',
+        minHeight: SCREEN_HEIGHT,
     },
     tabRow: {
         flexDirection: 'row',

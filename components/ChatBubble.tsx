@@ -42,7 +42,7 @@ function SingleBubble({ variant, message }: SingleBubbleProps) {
     return (
         <View style={[styles.bubbleContainer, isUser ? styles.userBubble : styles.aiBubble]}>
             <Text style={[styles.text, isUser ? styles.userText : styles.aiText]}>
-                {isUser ? message : `• ${message}`}
+                {message}
             </Text>
         </View>
     );
@@ -97,13 +97,13 @@ export function ChatBubble() {
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsLoading(false);
-        }, 20000);
+        }, 500);
 
         return () => clearTimeout(timer);
     }, []);
 
     return (
-        <View style={styles.container}>
+        <>
             {DUMMY_CHAT.map((chat) => (
                 isLoading ? (
                     <LoadingBubble key={chat.id} variant={chat.variant} />
@@ -111,15 +111,11 @@ export function ChatBubble() {
                     <SingleBubble key={chat.id} variant={chat.variant} message={chat.message} />
                 )
             ))}
-        </View>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        marginTop: 20,
-        marginBottom: 20,
-    },
     bubbleContainer: {
         marginBottom: 12,
         maxWidth: '85%',
