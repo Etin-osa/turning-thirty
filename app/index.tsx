@@ -1,9 +1,9 @@
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView, KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -32,26 +32,24 @@ function getOrdinalSuffix(day: number): string {
 const WELCOME_FONT_SIZE = 27
 const WELCOME_LINE_HEIGHT = 42
 const WELCOME_FAINT_COLOR = '#ffffff9a'
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const TOP_DASHBOARD_HEIGHT = 450
+const collapseHeight = 110
+const collapseGradientHeight = collapseHeight + 100
+const collapseScrollPadding = collapseHeight + 100
 
 export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
-    const [activeTab, setActiveTab] = useState(1)
-    const TOP_DASHBOARD_HEIGHT = 450
-    const GRADIENT_HEIGHT = 800
-    const SCROLL_PADDING = 450
+    const scrollX = useSharedValue(SCREEN_WIDTH)
 
     const insets = useSafeAreaInsets()
+    const chatScrollViewRef = useRef<KeyboardAwareScrollViewRef>(null)
+    const notesScrollViewRef = useRef<KeyboardAwareScrollViewRef>(null)
     const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT)
-    const gradientHeight = useSharedValue(GRADIENT_HEIGHT)
-    const scrollPadding = useSharedValue(SCROLL_PADDING)
     const startHeight = useSharedValue(0)
-    const collapseHeight = 110
-    const collapseGradientHeight = collapseHeight + 100
-    const collapseScrollPadding = collapseHeight + 100
 
-    const pan = Gesture.Pan()
+    const dashboardPan = Gesture.Pan()
         .onStart(() => {
             startHeight.value = dashboardHeight.value
         })
@@ -60,10 +58,8 @@ export default function HomeScreen() {
 
             if (newHeight < collapseHeight) {
                 dashboardHeight.value = collapseHeight
-                gradientHeight.value = collapseGradientHeight
             } else {
                 dashboardHeight.value = newHeight
-                gradientHeight.value = newHeight + (GRADIENT_HEIGHT - TOP_DASHBOARD_HEIGHT)
             }
         })
         .onEnd((event) => {
@@ -71,30 +67,48 @@ export default function HomeScreen() {
 
             if (event.velocityY > 0) {
                 dashboardHeight.value = withTiming(
-                    expandedHeight, { duration: 500, easing: Easing.linear }
-                )
-                gradientHeight.value = withTiming(
-                    expandedHeight + (GRADIENT_HEIGHT - TOP_DASHBOARD_HEIGHT), { duration: 500, easing: Easing.linear }
-                )
-                scrollPadding.value = withTiming(
-                    SCROLL_PADDING, { duration: 500, easing: Easing.linear }
+                    expandedHeight, { duration: 300, easing: Easing.out(Easing.quad) }
                 )
             } else {
                 dashboardHeight.value = withTiming(
-                    collapseHeight, { duration: 500, easing: Easing.linear }
-                )
-                gradientHeight.value = withTiming(
-                    collapseGradientHeight, { duration: 500, easing: Easing.linear }
-                )
-                scrollPadding.value = withTiming(
-                    collapseScrollPadding, { duration: 500, easing: Easing.linear }
+                    collapseHeight, { duration: 300, easing: Easing.out(Easing.quad) }
                 )
             }
         });
 
+    const ctxX = useSharedValue(0);
+    const horizontalPan = Gesture.Pan()
+        .activeOffsetX([-5, 5])
+        .failOffsetY([-5, 5])
+        .onStart(() => {
+            ctxX.value = scrollX.value;
+        })
+        .onUpdate((e) => {
+            let nextVal = ctxX.value - e.translationX;
+            if (nextVal < 0) nextVal = 0;
+            if (nextVal > SCREEN_WIDTH) nextVal = SCREEN_WIDTH;
+            scrollX.value = nextVal;
+        })
+        .onEnd((e) => {
+            const currentX = scrollX.value;
+            const target = (currentX > SCREEN_WIDTH / 2) || (e.velocityX < -500) 
+                ? SCREEN_WIDTH 
+                : 0;
+            
+            let finalDest = target;
+            if (e.velocityX < -500) finalDest = SCREEN_WIDTH
+            else if (e.velocityX > 500) finalDest = 0
+            else {
+                finalDest = (currentX > SCREEN_WIDTH / 2) ? SCREEN_WIDTH : 0
+            }
+
+            scrollX.value = withTiming(finalDest, { duration: 300, easing: Easing.out(Easing.quad) })
+        });
+
+
     const indicatorStyle = useAnimatedStyle(() => {
         return {
-            left: withTiming(activeTab === 0 ? 5 : 60, { duration: 300, easing: Easing.out(Easing.quad) }),
+            left: interpolate(scrollX.value, [0, SCREEN_WIDTH], [5, 60]),
         };
     });
 
@@ -117,15 +131,57 @@ export default function HomeScreen() {
 
     const animatedGradientHeightStyle = useAnimatedStyle(() => {
         return {
-            height: gradientHeight.value,
+            height: withTiming(interpolate(
+                dashboardHeight.value,
+                [collapseHeight, collapseHeight + 60],
+                [collapseGradientHeight, collapseGradientHeight + 100]
+            ), { duration: 100, easing: Easing.out(Easing.quad) }),
         };
     });
 
-    const animatedScrolPaddingStyle = useAnimatedStyle(() => {
+    const animatedScrollPaddingStyle = useAnimatedStyle(() => {
         return {
-            paddingTop: scrollPadding.value
+            paddingTop: withTiming(interpolate(
+                dashboardHeight.value,
+                [collapseHeight, collapseHeight + 60],
+                [collapseScrollPadding, collapseScrollPadding + 60]
+            ), { duration: 100, easing: Easing.out(Easing.quad) })
         };
     });
+
+    const trackStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateX: -scrollX.value }],
+        };
+    });
+
+    const notesContentStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ 
+                translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 150]) 
+            }],
+        };
+    });
+
+    const chatContentStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ 
+                translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [-150, 0]) 
+            }],
+        };
+    });
+
+    const handleTabPress = (tabIndex: number) => {
+        const targetX = tabIndex === 0 ? 0 : SCREEN_WIDTH;
+        scrollX.value = withTiming(targetX, { duration: 300, easing: Easing.out(Easing.quad) });
+    };
+
+    const notesActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }));
+    const notesInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }));
+
+    const chatActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }));
+    const chatInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }));
+
 
     useEffect(() => {
         const targetDate = new Date('2030-02-15T00:00:00').getTime();
@@ -162,20 +218,41 @@ export default function HomeScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
         >
-            <KeyboardAwareScrollView
-                contentContainerStyle={styles.scrollContent}
-                style={[animatedScrolPaddingStyle]}
-            >                
-                {activeTab === 1 && (
-                    <ChatBubble />
-                )}
-                {activeTab === 0 && (
-                    <Notes />
-                )}
-                <View style={{ height: insets.bottom + 300 }} /> 
-            </KeyboardAwareScrollView>
+            <GestureDetector gesture={horizontalPan}>
+                <View style={styles.rootContainer}>
+                    <Animated.View style={[styles.horizontalTrack, trackStyle]}> 
+                        <View style={[styles.viewport, { left: 0 }]}>
+                            <Animated.View style={[styles.parallaxContent, notesContentStyle]}>
+                                <KeyboardAwareScrollView
+                                    ref={notesScrollViewRef}
+                                    contentContainerStyle={styles.scrollContent}
+                                    style={[animatedScrollPaddingStyle]}
+                                    onContentSizeChange={() => notesScrollViewRef.current?.scrollToEnd({ animated: false })}
+                                >
+                                    <Notes />
+                                    <View style={{ height: insets.bottom + 300 }} />
+                                </KeyboardAwareScrollView>
+                            </Animated.View>
+                        </View>
 
-            <View style={[styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}>
+                        <View style={[styles.viewport, { left: SCREEN_WIDTH }]}>
+                            <Animated.View style={[styles.parallaxContent, chatContentStyle]}>
+                                <KeyboardAwareScrollView
+                                    ref={chatScrollViewRef}
+                                    contentContainerStyle={styles.scrollContent}
+                                    style={[animatedScrollPaddingStyle]}
+                                    onContentSizeChange={() => chatScrollViewRef.current?.scrollToEnd({ animated: false })}
+                                >
+                                    <ChatBubble />
+                                    <View style={{ height: insets.bottom + 300 }} /> 
+                                </KeyboardAwareScrollView>
+                            </Animated.View>
+                        </View>
+                    </Animated.View>
+                </View>
+            </GestureDetector>
+
+             <View style={[ styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}>
                 <View style={styles.inputPill}>
                     <TouchableOpacity style={styles.iconButton}>
                         <Feather name="clock" size={20} color="#737373" />
@@ -226,7 +303,7 @@ export default function HomeScreen() {
                     </Animated.View>
                 </Animated.View>
 
-                <GestureDetector gesture={pan}>
+                <GestureDetector gesture={dashboardPan}>
                     <View style={{ padding: 15, position: 'relative', zIndex: 12 }}>
                         <View style={styles.topDashboardLine} />
                     </View>
@@ -234,25 +311,27 @@ export default function HomeScreen() {
 
                 <View style={styles.tabRow}>
                     <Animated.View style={[styles.tabIndicator, indicatorStyle]} />
-                    <Pressable style={styles.tabButton} onPress={() => setActiveTab(0)}>
-                        {activeTab === 0 ? (
+                    <Pressable style={styles.tabButton} onPress={() => handleTabPress(0)}>
+                        <Animated.View style={[StyleSheet.absoluteFill, styles.tabIcon, notesActiveOpacity]}>
                             <FontAwesome6 name="file-invoice" size={22} color="#fff" />
-                        ) : (
+                        </Animated.View>
+                        <Animated.View style={[StyleSheet.absoluteFill, styles.tabIcon, notesInactiveOpacity]}>
                             <FontAwesome6 name="file" size={22} color="gray" />
-                        )}
+                        </Animated.View>
                     </Pressable>
-                    <Pressable style={styles.tabButton} onPress={() => setActiveTab(1)}>
-                         {activeTab === 1 ? (
+                    <Pressable style={styles.tabButton} onPress={() => handleTabPress(1)}>
+                        <Animated.View style={[StyleSheet.absoluteFill, styles.tabIcon, chatActiveOpacity]}>
                             <MaterialCommunityIcons name="chat" size={22} color="#fff" />
-                        ) : (
-                             <MaterialCommunityIcons name="chat-outline" size={22} color="gray" />
-                        )}
+                        </Animated.View>
+                        <Animated.View style={[StyleSheet.absoluteFill, styles.tabIcon, chatInactiveOpacity]}>
+                            <MaterialCommunityIcons name="chat-outline" size={22} color="gray" />
+                        </Animated.View>
                     </Pressable>
                 </View>
 
                 <Animated.View style={[styles.gradientContainer, animatedGradientHeightStyle]}>
                     <LinearGradient
-                        colors={['#000000', 'rgba(0,0,0,0)']}
+                        colors={['#000000ff', 'rgba(0,0,0,0)']}
                         locations={[0.65, 1]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 0, y: 1 }}
@@ -268,7 +347,30 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#080808',
-        position: 'relative',
+        position: 'relative'
+    },
+    rootContainer: {
+        flex: 1,
+        width: '100%',
+        overflow: 'hidden'
+    },
+    horizontalTrack: {
+        flex: 1,
+        flexDirection: 'row',
+        width: '200%'
+    },
+    viewport: {
+        width: SCREEN_WIDTH,
+        height: '100%',
+        overflow: 'hidden',
+        position: 'absolute',
+        top: 0,
+        bottom: 0
+    },
+    parallaxContent: {
+        flex: 1,
+        width: '100%',
+        height: '100%'
     },
     topDashboard: {
         position: 'absolute',
@@ -341,10 +443,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         lineHeight: WELCOME_LINE_HEIGHT
     },
-    calendarEmoji: {
-        fontSize: 30,
-        transform: [{ rotate: '-15deg' }],
-    },
     footerContainer: {
         marginTop: 'auto',
         gap: 10,
@@ -388,7 +486,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#3D3D3D',
         borderRadius: 100,
         width: 45,
-        height: 45,
+        height: 45, // Fixed height to match existing style
+    },
+    tabIcon: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     tabButton: {
         justifyContent: 'center',
@@ -405,16 +507,6 @@ const styles = StyleSheet.create({
         width: '100%',
         zIndex: 10
     },
-    dateDivider: {
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    dateDividerText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#999',
-        letterSpacing: 1,
-    },
     inputWrapper: {
         position: 'absolute',
         bottom: 0,
@@ -422,51 +514,7 @@ const styles = StyleSheet.create({
         right: 0,
         paddingHorizontal: 16,
         zIndex: 110,
-        backgroundColor: 'black'
-    },
-    floatingMenu: {
-        position: 'absolute',
-        top: -60,
-        left: 20,
-        alignItems: 'flex-start',
-    },
-    menuPill: {
-        flexDirection: 'row',
-        backgroundColor: '#333',
-        borderRadius: 20,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    menuText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    menuDivider: {
-        width: 1,
-        height: 12,
-        backgroundColor: '#666',
-        marginHorizontal: 12,
-    },
-    menuArrow: {
-        width: 0,
-        height: 0,
-        backgroundColor: 'transparent',
-        borderStyle: 'solid',
-        borderLeftWidth: 6,
-        borderRightWidth: 6,
-        borderTopWidth: 6,
-        borderLeftColor: 'transparent',
-        borderRightColor: 'transparent',
-        borderTopColor: '#333',
-        marginLeft: 20,
-        marginBottom: 8,
+        backgroundColor: '#080808'
     },
     inputPill: {
         flexDirection: 'row',
