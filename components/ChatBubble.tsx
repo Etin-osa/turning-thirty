@@ -97,7 +97,7 @@ export function ChatBubble() {
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsLoading(false);
-        }, 500);
+        }, 3000);
 
         return () => clearTimeout(timer);
     }, []);

@@ -1,14 +1,16 @@
+
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { KeyboardAvoidingView, KeyboardAwareScrollView, KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef, useKeyboardHandler } from 'react-native-keyboard-controller';
 import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatBubble } from '../components/ChatBubble';
 import { Notes } from '../components/Notes';
+import Input from '@/components/Input';
 
 const months = [
     "January", "February", "March", "April", "May", "June",
@@ -75,6 +77,18 @@ export default function HomeScreen() {
                 )
             }
         });
+
+    useKeyboardHandler(
+        {
+            onStart: (e) => {
+                'worklet';
+                if (e.height > 0) {
+                    dashboardHeight.value = withTiming(collapseHeight, { duration: 300, easing: Easing.out(Easing.quad) });
+                }
+            },
+        },
+        []
+    );
 
     const ctxX = useSharedValue(0);
     const horizontalPan = Gesture.Pan()
@@ -184,7 +198,7 @@ export default function HomeScreen() {
 
 
     useEffect(() => {
-        const targetDate = new Date('2030-02-15T00:00:00').getTime();
+        const targetDate = new Date('2030-02-15T00:00:00').getTime()
 
         const updateTime = () => {
             const now = new Date();
@@ -209,15 +223,13 @@ export default function HomeScreen() {
         updateTime();
         const interval = setInterval(updateTime, 1000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval)
+        }
     }, []);
 
     return (
-        <KeyboardAvoidingView 
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
-        >
+        <View style={styles.container}>
             <GestureDetector gesture={horizontalPan}>
                 <View style={styles.rootContainer}>
                     <Animated.View style={[styles.horizontalTrack, trackStyle]}> 
@@ -252,21 +264,7 @@ export default function HomeScreen() {
                 </View>
             </GestureDetector>
 
-             <View style={[ styles.inputWrapper, { paddingBottom: insets.bottom + 10 }]}>
-                <View style={styles.inputPill}>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Feather name="clock" size={20} color="#737373" />
-                    </TouchableOpacity>
-                    <TextInput
-                        style={styles.textInput}
-                        placeholder="Let's talk about your day..."
-                        placeholderTextColor="#535353"
-                    />
-                    <TouchableOpacity style={styles.sendButton}>
-                        <Feather name="arrow-up" size={20} color="#737373" />
-                    </TouchableOpacity>
-                </View>
-            </View>
+            <Input />
 
             <View style={styles.topDashboard}>
                 <Animated.View style={[styles.topDashboardContent, { paddingTop: insets.top + 20 }, animatedContentHeightStyle]}>
@@ -339,7 +337,7 @@ export default function HomeScreen() {
                     />
                 </Animated.View>
             </View>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
@@ -486,11 +484,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#3D3D3D',
         borderRadius: 100,
         width: 45,
-        height: 45, // Fixed height to match existing style
+        height: 45
     },
     tabIcon: {
         justifyContent: 'center',
-        alignItems: 'center',
+        alignItems: 'center'
     },
     tabButton: {
         justifyContent: 'center',
@@ -506,46 +504,5 @@ const styles = StyleSheet.create({
         left: 0, 
         width: '100%',
         zIndex: 10
-    },
-    inputWrapper: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 16,
-        zIndex: 110,
-        backgroundColor: '#080808'
-    },
-    inputPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#1C1C1C',
-        borderRadius: 32,
-        paddingVertical: 6,
-        paddingHorizontal: 6,
-        borderWidth: 1,
-    },
-    iconButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#2D2D2D',
-    },
-    textInput: {
-        flex: 1,
-        height: 44,
-        marginHorizontal: 12,
-        fontSize: 16,
-        color: '#333',
-    },
-    sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#2D2D2D',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    }
 });
