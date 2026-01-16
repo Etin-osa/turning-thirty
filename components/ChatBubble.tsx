@@ -2,34 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
-export interface ChatMessage {
-    id: string;
-    variant: 'user' | 'ai';
-    message: string;
-}
-
-export const DUMMY_CHAT: ChatMessage[] = [
-    { id: '1', variant: 'user', message: 'Hey, how are things looking for the party?' },
-    { id: '2312', variant: 'ai', message: 'Things are on track! Here is what we have so far:\n\nVenue booked for Saturday\nCatering confirmed for 50 guests\nMusic playlist curated' },
-    { id: '3', variant: 'user', message: 'That sounds great! What about the decorations?' },
-    { id: '4', variant: 'ai', message: 'I have ordered the balloons and streamers. They should arrive by Friday.' },
-    { id: '5', variant: 'user', message: 'Perfect. Did we invite Sarah and Mike?' },
-    { id: '6', variant: 'ai', message: 'Yes, invitations were sent to them yesterday. Waiting for their RSVP.' },
-    { id: '7', variant: 'user', message: 'Can you remind me what the theme is again?' },
-    { id: '8', variant: 'ai', message: 'The theme is "Roaring Twenties". Think Gatsby style - gold, black, and art deco.' },
-    { id: '9', variant: 'user', message: 'Right! I need to find a costume.' },
-    { id: '10', variant: 'ai', message: 'I can suggest some rental places nearby if you like?' },
-    { id: '11', variant: 'user', message: 'Yes please, send me a list.' },
-    { id: '12', variant: 'ai', message: 'Here are a few top-rated ones:\n\nVintage Vogue Rentals\nCostume Castle\nRetro Fit Outfitters' },
-    { id: '13', variant: 'user', message: 'Thanks! Also, are we doing a cake?' },
-    { id: '14', variant: 'ai', message: 'Absolutely! A three-tier deco-style cake has been ordered from Sweet Dreams Bakery.' },
-    { id: '15', variant: 'user', message: 'What flavor did we pick?' },
-    { id: '16', variant: 'ai', message: 'Chocolate ganache with raspberry filling. A classic choice.' },
-    { id: '17', variant: 'user', message: 'Yum. What about drinks?' },
-    { id: '18', variant: 'ai', message: 'We have a mixologist hired for the night. They will be serving prohibition-era cocktails like Old Fashioneds and Gin Rickeys.' },
-    { id: '19', variant: 'user', message: 'Sounds amazing. I am really looking forward to it.' },
-    { id: '20', variant: 'ai', message: 'It is going to be a fantastic night! Let me know if you need anything else.' },
-];
+import { useApp } from '../context/AppContext';
 
 interface SingleBubbleProps {
     variant: 'user' | 'ai';
@@ -91,7 +64,8 @@ function LoadingBubble({ variant }: { variant: 'user' | 'ai' }) {
     );
 }
 
-export function ChatBubble() {
+export default function ChatBubble() {
+    const { chatMessages } = useApp();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -104,7 +78,7 @@ export function ChatBubble() {
 
     return (
         <>
-            {DUMMY_CHAT.map((chat) => (
+            {chatMessages.map((chat) => (
                 isLoading ? (
                     <LoadingBubble key={chat.id} variant={chat.variant} />
                 ) : (

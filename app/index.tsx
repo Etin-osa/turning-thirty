@@ -2,15 +2,17 @@
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { KeyboardAwareScrollView, KeyboardAwareScrollViewRef, useKeyboardHandler } from 'react-native-keyboard-controller';
-import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, interpolate, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 
-import { ChatBubble } from '../components/ChatBubble';
-import { Notes } from '../components/Notes';
 import Input from '@/components/Input';
+import { useApp } from '@/context/AppContext';
+import ChatBubble from '../components/ChatBubble';
+import Notes from '../components/Notes';
 
 const months = [
     "January", "February", "March", "April", "May", "June",
@@ -50,6 +52,7 @@ export default function HomeScreen() {
     const notesScrollViewRef = useRef<KeyboardAwareScrollViewRef>(null)
     const dashboardHeight = useSharedValue(TOP_DASHBOARD_HEIGHT)
     const startHeight = useSharedValue(0)
+    const { setActiveTab } = useApp();
 
     const dashboardPan = Gesture.Pan()
         .onStart(() => {
@@ -76,19 +79,26 @@ export default function HomeScreen() {
                     collapseHeight, { duration: 300, easing: Easing.out(Easing.quad) }
                 )
             }
-        });
+        })
 
-    useKeyboardHandler(
-        {
-            onStart: (e) => {
-                'worklet';
-                if (e.height > 0) {
-                    dashboardHeight.value = withTiming(collapseHeight, { duration: 300, easing: Easing.out(Easing.quad) });
-                }
-            },
-        },
-        []
-    );
+    useKeyboardHandler({
+        onStart: (e) => {
+            'worklet';
+            if (e.height > 0) {
+                dashboardHeight.value = withTiming(collapseHeight, { duration: 300, easing: Easing.out(Easing.quad) })
+            }
+        }
+    }, [])
+
+    const dismissKeyboard = () => {
+        Keyboard.dismiss()
+    }
+
+    useAnimatedReaction(() => dashboardHeight.value, (current, previous) => {
+        if (previous && current > previous && current > collapseHeight) {
+            scheduleOnRN(dismissKeyboard)
+        }
+    })
 
     const ctxX = useSharedValue(0);
     const horizontalPan = Gesture.Pan()
@@ -104,12 +114,12 @@ export default function HomeScreen() {
             scrollX.value = nextVal;
         })
         .onEnd((e) => {
-            const currentX = scrollX.value;
+            const currentX = scrollX.value
             const target = (currentX > SCREEN_WIDTH / 2) || (e.velocityX < -500) 
                 ? SCREEN_WIDTH 
-                : 0;
+                : 0
             
-            let finalDest = target;
+            let finalDest = target
             if (e.velocityX < -500) finalDest = SCREEN_WIDTH
             else if (e.velocityX > 500) finalDest = 0
             else {
@@ -117,13 +127,17 @@ export default function HomeScreen() {
             }
 
             scrollX.value = withTiming(finalDest, { duration: 300, easing: Easing.out(Easing.quad) })
-        });
-
+        })
+        .onFinalize((event) => {
+            if (event.translationX > 0) {
+                scheduleOnRN(setActiveTab, 'notes')
+            } else {
+                scheduleOnRN(setActiveTab, 'chat')
+            }
+        })
 
     const indicatorStyle = useAnimatedStyle(() => {
-        return {
-            left: interpolate(scrollX.value, [0, SCREEN_WIDTH], [5, 60]),
-        };
+        return { left: interpolate(scrollX.value, [0, SCREEN_WIDTH], [5, 60]) };
     });
 
     const contentOpacityStyle = useAnimatedStyle(() => {
@@ -138,9 +152,7 @@ export default function HomeScreen() {
     });
 
     const animatedContentHeightStyle = useAnimatedStyle(() => {
-        return {
-            height: dashboardHeight.value,
-        };
+        return { height: dashboardHeight.value };
     });
 
     const animatedGradientHeightStyle = useAnimatedStyle(() => {
@@ -164,37 +176,32 @@ export default function HomeScreen() {
     });
 
     const trackStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateX: -scrollX.value }],
-        };
+        return { transform: [{ translateX: -scrollX.value }]};
     });
 
     const notesContentStyle = useAnimatedStyle(() => {
         return {
-            transform: [{ 
-                translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 150]) 
-            }],
+            transform: [{ translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 150]) }],
         };
     });
 
     const chatContentStyle = useAnimatedStyle(() => {
         return {
-            transform: [{ 
-                translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [-150, 0]) 
-            }],
+            transform: [{  translateX: interpolate(scrollX.value, [0, SCREEN_WIDTH], [-150, 0]) }],
         };
     });
 
     const handleTabPress = (tabIndex: number) => {
         const targetX = tabIndex === 0 ? 0 : SCREEN_WIDTH;
         scrollX.value = withTiming(targetX, { duration: 300, easing: Easing.out(Easing.quad) });
+        setActiveTab(tabIndex === 0 ? 'notes' : 'chat');
     };
 
-    const notesActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }));
-    const notesInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }));
+    const notesActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }))
+    const notesInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }))
 
-    const chatActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }));
-    const chatInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }));
+    const chatActiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [0, 1]) }))
+    const chatInactiveOpacity = useAnimatedStyle(() => ({ opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH], [1, 0]) }))
 
 
     useEffect(() => {
@@ -220,12 +227,9 @@ export default function HomeScreen() {
             setDateString({ part1, part2: " 📅" });
         };
 
-        updateTime();
-        const interval = setInterval(updateTime, 1000);
-
-        return () => {
-            clearInterval(interval)
-        }
+        chatScrollViewRef.current?.scrollToEnd({ animated: false })
+        notesScrollViewRef.current?.scrollToEnd({ animated: false })
+        updateTime()
     }, []);
 
     return (
@@ -242,7 +246,7 @@ export default function HomeScreen() {
                                     onContentSizeChange={() => notesScrollViewRef.current?.scrollToEnd({ animated: false })}
                                 >
                                     <Notes />
-                                    <View style={{ height: insets.bottom + 300 }} />
+                                    <View style={{ height: insets.bottom + 300 }} /> 
                                 </KeyboardAwareScrollView>
                             </Animated.View>
                         </View>

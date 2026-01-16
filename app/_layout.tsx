@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import 'react-native-reanimated';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -9,16 +9,20 @@ export const unstable_settings = {
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { AppProvider } from '../context/AppContext';
+
 export default function RootLayout() {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-                <Stack>
-                    <Stack.Screen name="index" options={{ headerShown: false }} />
-                </Stack>
-                <StatusBar style="light" />
-            </KeyboardProvider>
+            <AppProvider>
+                <KeyboardProvider>
+                    <Stack>
+                        <Stack.Screen name="index" options={{ headerShown: false }} />
+                    </Stack>
+                    <StatusBar style="light" />
+                </KeyboardProvider>
+            </AppProvider>
         </GestureHandlerRootView>
     );
 }

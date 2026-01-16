@@ -1,9 +1,9 @@
-import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
-import { KeyboardStickyView } from 'react-native-keyboard-controller'
 import { Feather } from '@expo/vector-icons'
+import React, { useEffect, useRef, useState } from 'react'
+import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { KeyboardStickyView } from 'react-native-keyboard-controller'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRef } from 'react'
+import { useApp } from '../context/AppContext'
 
 const Input = () => {
     const insets = useSafeAreaInsets()
@@ -11,6 +11,7 @@ const Input = () => {
     const [showHistoryMenu, setShowHistoryMenu] = useState(false)
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<string | null>(null)
     const [inputValue, setInputValue] = useState('')
+    const { addNote, addChatMessage, activeTab } = useApp()
 
     useEffect(() => {
         const subscription = Keyboard.addListener('keyboardDidHide', () => {
@@ -18,9 +19,10 @@ const Input = () => {
         });
 
         return () => subscription.remove()
-    })
+    }, [])
+
     return (
-        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }} style={styles.inputWrapper}>
+        <KeyboardStickyView enabled offset={{ closed: 0, opened: insets.bottom }} style={styles.inputWrapper}>
             {showHistoryMenu && (
                 <View style={styles.historyMenu}>
                     <Text style={styles.historyHeader}>Remember Conversation</Text>
@@ -59,9 +61,23 @@ const Input = () => {
                     placeholder="Let's talk about your day..."
                     placeholderTextColor="#535353"
                     ref={inputRef}
+                    value={inputValue}
                     onChangeText={(text) => setInputValue(text)}
                 />
-                <TouchableOpacity style={styles.sendButton}>
+                <TouchableOpacity 
+                    style={styles.sendButton}
+                    onPress={() => {
+                        if (inputValue.length > 0) {
+                            if (activeTab === 'notes') {
+                                addNote(inputValue);
+                            } else {
+                                addChatMessage(inputValue);
+                            }
+                            setInputValue('');
+                            inputRef.current?.clear();
+                        }
+                    }}
+                >
                     <Feather name="arrow-up" size={20} color={inputValue.length > 0 ? "#ffffffff" : "#737373"} />
                 </TouchableOpacity>
             </View>
@@ -73,7 +89,7 @@ export default Input
 
 const styles = StyleSheet.create({
     inputWrapper: {
-        position: 'absolute',
+        position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
