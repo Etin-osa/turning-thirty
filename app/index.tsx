@@ -1,4 +1,3 @@
-
 import { Feather, FontAwesome6, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
@@ -45,6 +44,7 @@ const collapseScrollPadding = collapseHeight + 100
 export default function HomeScreen() {
     const [daysLeft, setDaysLeft] = useState(0)
     const [dateString, setDateString] = useState({ part1: "", part2: "" })
+    const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening' | ''>("")
     const scrollX = useSharedValue(SCREEN_WIDTH)
 
     const insets = useSafeAreaInsets()
@@ -213,19 +213,27 @@ export default function HomeScreen() {
             const difference = targetDate - nowTime;
 
             if (difference > 0) {
-                setDaysLeft(Math.floor(difference / (1000 * 60 * 60 * 24)));
+                setDaysLeft(Math.floor(difference / (1000 * 60 * 60 * 24)))
             } else {
-                setDaysLeft(0);
+                setDaysLeft(0)
             }
 
-            const dayName = daysOfWeek[now.getDay()];
-            const month = months[now.getMonth()];
-            const day = now.getDate();
-            const year = now.getFullYear();
+            const dayName = daysOfWeek[now.getDay()]
+            const month = months[now.getMonth()]
+            const day = now.getDate()
+            const year = now.getFullYear()
+            const hours = now.getHours()
 
-            const part1 = `${dayName} — ${month} ${day}${getOrdinalSuffix(day)} ${year}`;
-            setDateString({ part1, part2: " 📅" });
-        };
+            const part1 = `${dayName} — ${month} ${day}${getOrdinalSuffix(day)} ${year}`
+            setDateString({ part1, part2: " 📅" })
+            if (hours < 12) {
+                setTimeOfDay("morning")
+            } else if (hours < 18) {
+                setTimeOfDay("afternoon")
+            } else {
+                setTimeOfDay("evening")
+            }
+        }
 
         chatScrollViewRef.current?.scrollToEnd({ animated: false })
         notesScrollViewRef.current?.scrollToEnd({ animated: false })
@@ -282,9 +290,9 @@ export default function HomeScreen() {
                     
                     <Animated.View style={[styles.heroContainer, { top: insets.top + (0.47 * TOP_DASHBOARD_HEIGHT) }, contentOpacityStyle]}>
                         <View style={styles.greetingContainer}>
-                            <Text style={styles.greetingText}>Good morning, </Text>
+                            <Text style={styles.greetingText}>Good {timeOfDay}, </Text>
                             <View style={styles.profileCircle} />
-                            <Text style={styles.greetingName}> Alexey, </Text>
+                            <Text style={styles.greetingName}> Etin-osa, </Text>
                         </View>
                         <Text>
                             <Text style={styles.regularText}>It's </Text>
